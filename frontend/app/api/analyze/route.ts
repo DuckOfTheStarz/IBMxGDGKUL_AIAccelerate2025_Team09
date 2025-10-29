@@ -62,11 +62,30 @@ export async function POST(request: NextRequest) {
 
 function detectLanguage(filename: string): string {
   const lower = filename.toLowerCase();
+  if (lower.includes('_bg') || lower.includes('bulgarian')) return 'BG';
+  if (lower.includes('_hr') || lower.includes('croatian')) return 'HR';
+  if (lower.includes('_cs') || lower.includes('czech')) return 'CS';
+  if (lower.includes('_da') || lower.includes('danish')) return 'DA';
+  if (lower.includes('_nl') || lower.includes('dutch')) return 'NL';
   if (lower.includes('_en') || lower.includes('english')) return 'EN';
-  if (lower.includes('_de') || lower.includes('german') || lower.includes('deutsch')) return 'DE';
-  if (lower.includes('_lv') || lower.includes('latvian')) return 'LV';
+  if (lower.includes('_et') || lower.includes('estonian')) return 'ET';
+  if (lower.includes('_fi') || lower.includes('finnish')) return 'FI';
   if (lower.includes('_fr') || lower.includes('french')) return 'FR';
+  if (lower.includes('_de') || lower.includes('german') || lower.includes('deutsch')) return 'DE';
+  if (lower.includes('_el') || lower.includes('greek')) return 'EL';
+  if (lower.includes('_hu') || lower.includes('hungarian')) return 'HU';
+  if (lower.includes('_ga') || lower.includes('irish')) return 'GA';
+  if (lower.includes('_it') || lower.includes('italian')) return 'IT';
+  if (lower.includes('_lv') || lower.includes('latvian')) return 'LV';
+  if (lower.includes('_lt') || lower.includes('lithuanian')) return 'LT';
+  if (lower.includes('_mt') || lower.includes('maltese')) return 'MT';
+  if (lower.includes('_pl') || lower.includes('polish')) return 'PL';
+  if (lower.includes('_pt') || lower.includes('portuguese')) return 'PT';
+  if (lower.includes('_ro') || lower.includes('romanian')) return 'RO';
+  if (lower.includes('_sk') || lower.includes('slovak')) return 'SK';
+  if (lower.includes('_sl') || lower.includes('slovenian')) return 'SL';
   if (lower.includes('_es') || lower.includes('spanish')) return 'ES';
+  if (lower.includes('_sv') || lower.includes('swedish')) return 'SV';
   return 'Unknown';
 }
 

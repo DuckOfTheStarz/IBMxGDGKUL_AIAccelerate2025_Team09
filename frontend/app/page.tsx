@@ -47,14 +47,12 @@ export default function Home() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-500 rounded-lg">
-                <FileCheck2 className="w-6 h-6 text-white" />
-              </div>
+              <img src="https://logos-world.net/wp-content/uploads/2024/07/European-Union-Logo.jpg" alt="European Union Logo" width={150} height={150} />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  European Union Document Comparison Tool
+                <h1 className="text-2xl font-bold text-blue-800 pl-4">
+                  EuroVeritas
                 </h1>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 pl-4">
                   AI-powered multilingual document consistency verification
                 </p>
               </div>
@@ -76,7 +74,7 @@ export default function Home() {
               How to use the comparison tool
             </h2>
             <p className="text-gray-600 mb-4">
-              Upload multiple versions of the same document in different languages. 
+              Upload the two versions of the same document in different languages. <br />
               Our AI model will analyze and detect factual inconsistencies between the two documents.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
