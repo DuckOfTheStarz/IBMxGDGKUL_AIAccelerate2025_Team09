@@ -52,10 +52,10 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  Document Consistency Analyzer
+                  European Union Document Comparison Tool
                 </h1>
                 <p className="text-sm text-gray-600">
-                  AI-powered multilingual document verification
+                  AI-powered multilingual document consistency verification
                 </p>
               </div>
             </div>
@@ -73,12 +73,11 @@ export default function Home() {
           {/* Info Section */}
           <div className="bg-white rounded-lg border shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              How it works
+              How to use the comparison tool
             </h2>
             <p className="text-gray-600 mb-4">
               Upload multiple versions of the same document in different languages. 
-              Our AI model will analyze and detect factual inconsistencies such as dates, 
-              numbers, currency amounts, and percentages across all versions.
+              Our AI model will analyze and detect factual inconsistencies between the two documents.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-start gap-3">
@@ -127,6 +126,7 @@ export default function Home() {
 
           {/* Upload Section */}
           <DocumentUploader onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
+          
 
           {/* Analysis Results */}
           <InconsistencyDisplay analysis={analysis} />

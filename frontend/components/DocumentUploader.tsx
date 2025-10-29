@@ -19,51 +19,56 @@ interface DocumentUploaderProps {
 }
 
 export default function DocumentUploader({ onAnalyze, isAnalyzing = false }: DocumentUploaderProps) {
-  const [files, setFiles] = useState<UploadedFile[]>([]);
-  const [dragActive, setDragActive] = useState(false);
+  const [leftFile, setLeftFile] = useState<UploadedFile | null>(null);
+  const [rightFile, setRightFile] = useState<UploadedFile | null>(null);
+  const [dragActiveLeft, setDragActiveLeft] = useState(false);
+  const [dragActiveRight, setDragActiveRight] = useState(false);
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
+  const isValidFile = (file: File) =>
+    file.type === 'application/json' ||
+    file.name.endsWith('.json') ||
+    file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    file.name.endsWith('.docx');
+
+  const makeUploadedFile = (file: File): UploadedFile => ({
+    id: Math.random().toString(36).substring(7),
+    file,
+    language: detectLanguageFromFilename(file.name),
+    status: 'uploaded',
+  });
+
+  const handleDrag = useCallback((e: React.DragEvent, side: 'left' | 'right') => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
+    const setFn = side === 'left' ? setDragActiveLeft : setDragActiveRight;
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setFn(true);
+    } else if (e.type === 'dragleave') {
+      setFn(false);
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent, side: 'left' | 'right') => {
     e.preventDefault();
     e.stopPropagation();
-    setDragActive(false);
-
+    if (side === 'left') setDragActiveLeft(false); else setDragActiveRight(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFiles(Array.from(e.dataTransfer.files));
+      const file = e.dataTransfer.files[0];
+      if (isValidFile(file)) {
+        const uploaded = makeUploadedFile(file);
+        if (side === 'left') setLeftFile(uploaded); else setRightFile(uploaded);
+      }
     }
   }, []);
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>, side: 'left' | 'right') => {
     if (e.target.files && e.target.files.length > 0) {
-      handleFiles(Array.from(e.target.files));
+      const file = e.target.files[0];
+      if (isValidFile(file)) {
+        const uploaded = makeUploadedFile(file);
+        if (side === 'left') setLeftFile(uploaded); else setRightFile(uploaded);
+      }
     }
-  };
-
-  const handleFiles = (newFiles: File[]) => {
-    const validFiles = newFiles.filter(
-      file => file.type === 'application/json' || 
-              file.name.endsWith('.json') ||
-              file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-              file.name.endsWith('.docx')
-    );
-
-    const uploadedFiles: UploadedFile[] = validFiles.map(file => ({
-      id: Math.random().toString(36).substring(7),
-      file,
-      language: detectLanguageFromFilename(file.name),
-      status: 'uploaded' as const,
-    }));
-
-    setFiles(prev => [...prev, ...uploadedFiles]);
   };
 
   const detectLanguageFromFilename = (filename: string): string => {
@@ -95,17 +100,18 @@ export default function DocumentUploader({ onAnalyze, isAnalyzing = false }: Doc
     return 'Unknown';
   };
 
-  const removeFile = (id: string) => {
-    setFiles(prev => prev.filter(f => f.id !== id));
+  const removeFile = (side: 'left' | 'right') => {
+    if (side === 'left') setLeftFile(null); else setRightFile(null);
   };
 
-  const updateLanguage = (id: string, language: string) => {
-    setFiles(prev => prev.map(f => f.id === id ? { ...f, language } : f));
+  const updateLanguage = (side: 'left' | 'right', language: string) => {
+    if (side === 'left' && leftFile) setLeftFile({ ...leftFile, language });
+    if (side === 'right' && rightFile) setRightFile({ ...rightFile, language });
   };
 
   const handleAnalyze = () => {
-    if (files.length > 0) {
-      onAnalyze(files.map(f => f.file));
+    if (leftFile && rightFile) {
+      onAnalyze([leftFile.file, rightFile.file]);
     }
   };
 
@@ -114,133 +120,181 @@ export default function DocumentUploader({ onAnalyze, isAnalyzing = false }: Doc
       <CardHeader>
         <CardTitle>Upload Documents</CardTitle>
         <CardDescription>
-          Upload multiple versions of your document in different languages to detect inconsistencies
+          Upload exactly two documents (one per container) to compare for inconsistencies
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div
-          className={`relative border-2 border-dashed rounded-lg p-8 transition-colors ${
-            dragActive
-              ? 'border-primary bg-primary/5'
-              : 'border-gray-300 hover:border-gray-400'
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          <input
-            type="file"
-            id="file-upload"
-            multiple
-            accept=".json,.docx,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            onChange={handleFileInput}
-            className="hidden"
-          />
-          <label
-            htmlFor="file-upload"
-            className="flex flex-col items-center justify-center cursor-pointer"
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Left container */}
+          <div
+            className={`relative border-2 border-dashed rounded-lg p-8 transition-colors ${
+              dragActiveLeft ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-gray-400'
+            }`}
+            onDragEnter={(e) => handleDrag(e, 'left')}
+            onDragLeave={(e) => handleDrag(e, 'left')}
+            onDragOver={(e) => handleDrag(e, 'left')}
+            onDrop={(e) => handleDrop(e, 'left')}
           >
-            <Upload className="w-12 h-12 text-gray-400 mb-4" />
-            <p className="text-lg font-medium text-gray-700 mb-2">
-              Drop files here or click to upload
-            </p>
-            <p className="text-sm text-gray-500">
-              Supports JSON and DOCX files
-            </p>
-          </label>
-        </div>
-
-        {files.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-700">Uploaded Files ({files.length})</h3>
-            <div className="space-y-2">
-              {files.map((uploadedFile) => (
-                <div
-                  key={uploadedFile.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+            {!leftFile ? (
+              <>
+                <input
+                  type="file"
+                  id="file-upload-left"
+                  accept=".json,.docx,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={(e) => handleFileInput(e, 'left')}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="file-upload-left"
+                  className="flex flex-col items-center justify-center cursor-pointer"
                 >
-                  <div className="flex items-center gap-3 flex-1">
-                    <FileText className="w-5 h-5 text-blue-500" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {uploadedFile.file.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {(uploadedFile.file.size / 1024).toFixed(2)} KB
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={uploadedFile.language}
-                        onChange={(e) => updateLanguage(uploadedFile.id, e.target.value)}
-                        className="text-xs border rounded px-2 py-1 bg-white"
-                      >
-                        <option value="BG">BG</option>
-                        <option value="HR">HR</option>
-                        <option value="CS">CS</option>
-                        <option value="DA">DA</option>
-                        <option value="NL">NL</option>
-                        <option value="EN">EN</option>
-                        <option value="ET">ET</option>
-                        <option value="FI">FI</option>
-                        <option value="FR">FR</option>
-                        <option value="DE">DE</option>
-                        <option value="EL">EL</option>
-                        <option value="HU">HU</option>
-                        <option value="GA">GA</option>
-                        <option value="IT">IT</option>
-                        <option value="LV">LV</option>
-                        <option value="LT">LT</option>
-                        <option value="MT">MT</option>
-                        <option value="PL">PL</option>
-                        <option value="PT">PT</option>
-                        <option value="RO">RO</option>
-                        <option value="SK">SK</option>
-                        <option value="SL">SL</option>
-                        <option value="ES">ES</option>
-                        <option value="SV">SV</option>
-                        <option value="Unknown">Unknown</option>
-                      </select>
-                      {uploadedFile.status === 'uploaded' && (
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                      )}
-                    </div>
+                  <Upload className="w-12 h-12 text-gray-400 mb-4" />
+                  <p className="text-lg font-medium text-gray-700 mb-2">Drop file here or click to upload</p>
+                  <p className="text-sm text-gray-500">Supports JSON and DOCX files</p>
+                </label>
+              </>
+            ) : (
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                <div className="flex items-center gap-3 flex-1">
+                  <FileText className="w-5 h-5 text-blue-500" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{leftFile.file.name}</p>
+                    <p className="text-xs text-gray-500">{(leftFile.file.size / 1024).toFixed(2)} KB</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFile(uploadedFile.id)}
-                    className="ml-2"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={leftFile.language}
+                      onChange={(e) => updateLanguage('left', e.target.value)}
+                      className="text-xs border rounded px-2 py-1 bg-white"
+                    >
+                      <option value="BG">BG</option>
+                      <option value="HR">HR</option>
+                      <option value="CS">CS</option>
+                      <option value="DA">DA</option>
+                      <option value="NL">NL</option>
+                      <option value="EN">EN</option>
+                      <option value="ET">ET</option>
+                      <option value="FI">FI</option>
+                      <option value="FR">FR</option>
+                      <option value="DE">DE</option>
+                      <option value="EL">EL</option>
+                      <option value="HU">HU</option>
+                      <option value="GA">GA</option>
+                      <option value="IT">IT</option>
+                      <option value="LV">LV</option>
+                      <option value="LT">LT</option>
+                      <option value="MT">MT</option>
+                      <option value="PL">PL</option>
+                      <option value="PT">PT</option>
+                      <option value="RO">RO</option>
+                      <option value="SK">SK</option>
+                      <option value="SL">SL</option>
+                      <option value="ES">ES</option>
+                      <option value="SV">SV</option>
+                      <option value="Unknown">Unknown</option>
+                    </select>
+                    {leftFile.status === 'uploaded' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                  </div>
                 </div>
-              ))}
-            </div>
+                <Button variant="ghost" size="sm" onClick={() => removeFile('left')} className="ml-2">
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Right container */}
+          <div
+            className={`relative border-2 border-dashed rounded-lg p-8 transition-colors ${
+              dragActiveRight ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-gray-400'
+            }`}
+            onDragEnter={(e) => handleDrag(e, 'right')}
+            onDragLeave={(e) => handleDrag(e, 'right')}
+            onDragOver={(e) => handleDrag(e, 'right')}
+            onDrop={(e) => handleDrop(e, 'right')}
+          >
+            {!rightFile ? (
+              <>
+                <input
+                  type="file"
+                  id="file-upload-right"
+                  accept=".json,.docx,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={(e) => handleFileInput(e, 'right')}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="file-upload-right"
+                  className="flex flex-col items-center justify-center cursor-pointer"
+                >
+                  <Upload className="w-12 h-12 text-gray-400 mb-4" />
+                  <p className="text-lg font-medium text-gray-700 mb-2">Drop file here or click to upload</p>
+                  <p className="text-sm text-gray-500">Supports JSON and DOCX files</p>
+                </label>
+              </>
+            ) : (
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                <div className="flex items-center gap-3 flex-1">
+                  <FileText className="w-5 h-5 text-blue-500" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{rightFile.file.name}</p>
+                    <p className="text-xs text-gray-500">{(rightFile.file.size / 1024).toFixed(2)} KB</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={rightFile.language}
+                      onChange={(e) => updateLanguage('right', e.target.value)}
+                      className="text-xs border rounded px-2 py-1 bg-white"
+                    >
+                      <option value="BG">BG</option>
+                      <option value="HR">HR</option>
+                      <option value="CS">CS</option>
+                      <option value="DA">DA</option>
+                      <option value="NL">NL</option>
+                      <option value="EN">EN</option>
+                      <option value="ET">ET</option>
+                      <option value="FI">FI</option>
+                      <option value="FR">FR</option>
+                      <option value="DE">DE</option>
+                      <option value="EL">EL</option>
+                      <option value="HU">HU</option>
+                      <option value="GA">GA</option>
+                      <option value="IT">IT</option>
+                      <option value="LV">LV</option>
+                      <option value="LT">LT</option>
+                      <option value="MT">MT</option>
+                      <option value="PL">PL</option>
+                      <option value="PT">PT</option>
+                      <option value="RO">RO</option>
+                      <option value="SK">SK</option>
+                      <option value="SL">SL</option>
+                      <option value="ES">ES</option>
+                      <option value="SV">SV</option>
+                      <option value="Unknown">Unknown</option>
+                    </select>
+                    {rightFile.status === 'uploaded' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => removeFile('right')} className="ml-2">
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="flex justify-between items-center pt-4">
           <p className="text-sm text-gray-600">
-            {files.length === 0 ? 'No files uploaded yet' : 
-             files.length === 1 ? '1 file ready' : 
-             `${files.length} files ready`}
+            {!leftFile && !rightFile ? 'No files selected yet' :
+             (leftFile ? 1 : 0) + (rightFile ? 1 : 0) === 1 ? '1 file ready' : '2 files ready'}
           </p>
-          <Button
-            onClick={handleAnalyze}
-            disabled={files.length < 2 || isAnalyzing}
-            size="lg"
-          >
+          <Button onClick={handleAnalyze} disabled={!leftFile || !rightFile || isAnalyzing} size="lg">
             {isAnalyzing ? 'Analyzing...' : 'Analyze Documents'}
           </Button>
         </div>
 
-        {files.length === 1 && (
+        {((leftFile ? 1 : 0) + (rightFile ? 1 : 0)) === 1 && (
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              Please upload at least 2 documents to compare for inconsistencies.
-            </p>
+            <p className="text-sm text-yellow-800">Please upload a file in both containers to compare.</p>
           </div>
         )}
       </CardContent>
