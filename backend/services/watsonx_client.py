@@ -49,7 +49,6 @@ def process_parallel_jsons(json_left: Any, json_right: Any, text_key: str = "par
 
     return left[keep].reset_index(drop=True), right[keep].reset_index(drop=True)
 
-WATSONX_API_KEY = "d-UGWYtUERXWDmZvKloHQlJRIZL35NsAH5bExtflc6lr"
 WATSONX_URL = "https://eu-de.ml.cloud.ibm.com"
 
 HEADERS = {
@@ -176,38 +175,29 @@ async def analyze_docs(doc1:str,doc2:str,
 
     # --- STEP 3: Compute cosine similarities and filter ---
     results = []
-    i=0
-    for i, (para1, para2) in enumerate(zip(proc_en["para"], proc_de["para"])):
-        print(f"Paragraphs {i}:")
+    for i in range(len(proc_en)): # para1,para2 in zip(proc_en["embedding"],proc_de["embedding"]):
+        print("Paragraphs ",i,": ")
         similarity = cosine_similarity(
             [proc_en["embedding"][i]],
-            [proc_de["embedding"][i]]
-        )[0][0]
+            [proc_de["embedding"][i]])[0][0]
 
         if similarity < SIMILARITY_THRESHOLD:
-            # 🚀 Use the actual text paragraphs here, not embeddings
-            structured = await model2(para1, para2)
-
-            # try to decode as JSON if possible
-            try:
-                parsed = json.loads(structured)
-            except json.JSONDecodeError:
-                parsed = {"raw_text": structured}
-
-            results.append({
-                "para1": para1,
-                "para2": para2,
+            # If not similar enough, call Watson for detailed comparison
+            structured = await model2(proc_en["para"][i], proc_de["para"][i])
+            results.append({ #TODO
+                "para1": proc_en["para"][i],
+                "para2": proc_de["para"][i],
                 "similarity": similarity,
-                "detailed_differences": parsed
+                "detailed_differences": structured
             })
-        else:
+        else : 
             results.append({
-                "para1": para1,
-                "para2": para2,
+                "para1": proc_en["para"][i],
+                "para2": proc_de["para"][i],
                 "similarity": similarity,
                 "detailed_differences": None
             })
-            
+
     return results
 
 def func():
