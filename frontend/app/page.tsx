@@ -23,7 +23,7 @@ export default function Home() {
         formData.append('files', file);
       });
 
-      const response = await fetch('/api/', {
+      const response = await fetch('http://localhost:8000/api/analyze', {
         method: 'POST',
         body: formData,
       });
