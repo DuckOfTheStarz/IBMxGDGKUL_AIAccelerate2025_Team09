@@ -41,7 +41,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-blue-50">
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
@@ -85,7 +85,7 @@ export default function Home() {
                 <div>
                   <h3 className="font-medium text-gray-900">Upload Documents</h3>
                   <p className="text-sm text-gray-600">
-                    Upload 2 or more document versions in JSON or DOCX format
+                    Upload 2 document versions in JSON format
                   </p>
                 </div>
               </div>
@@ -107,7 +107,7 @@ export default function Home() {
                 <div>
                   <h3 className="font-medium text-gray-900">Review Results</h3>
                   <p className="text-sm text-gray-600">
-                    Get detailed reports with severity levels and context
+                    Get a detailed report of factual inconsistencies between the two documents
                   </p>
                 </div>
               </div>
@@ -135,8 +135,10 @@ export default function Home() {
       <footer className="border-t bg-white/80 backdrop-blur-sm mt-16">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between text-sm text-gray-600">
+          <img src="https://www.freepnglogos.com/uploads/ibm-logo-png/ibm-logo-acm-icpc-kanpur-site-0.png" alt="IBM Logo" className="w-24" />
+          <img src="https://www.kuleuven.be/aepz/afbeeldingen/logos/ku-leuven-logo.png/@@download/image/KU-Leuven-logo.png" alt="KU Leuven Logo" className="w-24" />
             <p>
-              © 2025 IBM x GDG KUL - AI Accelerate 2025 Team 09
+              Implemented by Domen Beden, John Bounds, Imane Guesmia, Maximilian Mangosi 
             </p>
             <p>
               Built with Next.js and IBM watsonx.ai

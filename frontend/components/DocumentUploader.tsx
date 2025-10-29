@@ -26,9 +26,9 @@ export default function DocumentUploader({ onAnalyze, isAnalyzing = false }: Doc
 
   const isValidFile = (file: File) =>
     file.type === 'application/json' ||
-    file.name.endsWith('.json') ||
-    file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    file.name.endsWith('.docx');
+    file.name.endsWith('.json');
+    //file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    //file.name.endsWith('.docx');
 
   const makeUploadedFile = (file: File): UploadedFile => ({
     id: Math.random().toString(36).substring(7),
@@ -150,7 +150,7 @@ export default function DocumentUploader({ onAnalyze, isAnalyzing = false }: Doc
                 >
                   <Upload className="w-12 h-12 text-gray-400 mb-4" />
                   <p className="text-lg font-medium text-gray-700 mb-2">Drop file here or click to upload</p>
-                  <p className="text-sm text-gray-500">Supports JSON and DOCX files</p>
+                  <p className="text-sm text-gray-500">Supports JSON files</p>
                 </label>
               </>
             ) : (
