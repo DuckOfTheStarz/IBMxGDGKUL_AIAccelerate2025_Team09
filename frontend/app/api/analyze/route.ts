@@ -5,6 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
+    const apiKey = formData.get('watsonx_api_key');
 
     if (files.length < 2) {
       return NextResponse.json(

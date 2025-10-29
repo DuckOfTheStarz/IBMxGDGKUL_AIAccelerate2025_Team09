@@ -14,7 +14,7 @@ interface UploadedFile {
 }
 
 interface DocumentUploaderProps {
-  onAnalyze: (files: File[]) => void;
+  onAnalyze: (files: File[], apiKey: string) => void;
   isAnalyzing?: boolean;
 }
 
@@ -23,6 +23,7 @@ export default function DocumentUploader({ onAnalyze, isAnalyzing = false }: Doc
   const [rightFile, setRightFile] = useState<UploadedFile | null>(null);
   const [dragActiveLeft, setDragActiveLeft] = useState(false);
   const [dragActiveRight, setDragActiveRight] = useState(false);
+  const [apiKey, setApiKey] = useState("");
 
   const isValidFile = (file: File) =>
     file.type === 'application/json' ||
@@ -111,7 +112,7 @@ export default function DocumentUploader({ onAnalyze, isAnalyzing = false }: Doc
 
   const handleAnalyze = () => {
     if (leftFile && rightFile) {
-      onAnalyze([leftFile.file, rightFile.file]);
+      onAnalyze([leftFile.file, rightFile.file], apiKey);
     }
   };
 
@@ -124,6 +125,20 @@ export default function DocumentUploader({ onAnalyze, isAnalyzing = false }: Doc
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* WatsonX API Key Input */}
+        <div>
+          <label className="block text-sm font-semibold mb-1" htmlFor="watsonx-api-key">IBM WatsonX API Key</label>
+          <input
+            type="password"
+            id="watsonx-api-key"
+            className="border rounded w-full px-3 py-2 mb-2"
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+            placeholder="Paste your IBM WatsonX API Key here..."
+            autoComplete="off"
+            required
+          />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Left container */}
           <div

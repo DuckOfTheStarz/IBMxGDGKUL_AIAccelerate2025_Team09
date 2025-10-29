@@ -13,7 +13,7 @@ export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleAnalyze = async (files: File[]) => {
+  const handleAnalyze = async (files: File[], apiKey: string) => {
     setIsAnalyzing(true);
     setError(null);
 
@@ -22,6 +22,7 @@ export default function Home() {
       files.forEach(file => {
         formData.append('files', file);
       });
+      formData.append('watsonx_api_key', apiKey);
 
       const response = await fetch('http://localhost:8000/api/analyze', {
         method: 'POST',
