@@ -89,11 +89,89 @@ A single wrong number or date in an official EU regulation can:
 
 ---
 
+# **Our Solution: Document Consistency Analyzer**
+
+We've built a **web-based front-end application** that allows users to upload multiple versions of a document (in different languages) and automatically detect factual inconsistencies using AI-powered analysis.
+
+## ✨ Key Features
+
+- 🎯 **Smart Detection**: Automatically identifies inconsistencies in dates, numbers, currency amounts, and percentages
+- 🌍 **Multi-Language Support**: Works with documents in English, German, Latvian, French, and Spanish
+- 📊 **Severity Classification**: Categorizes inconsistencies as High, Medium, or Low priority
+- 🎨 **Modern UI**: Beautiful, responsive interface with drag-and-drop file upload
+- 🔍 **Detailed Analysis**: Provides context and exact values for each inconsistency
+- ⚡ **Fast Processing**: Client-side processing for quick results
+
+## 🚀 Quick Start
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+Open `http://localhost:3000` and upload the sample files from the `data/` folder to see it in action!
+
+## 📖 Documentation
+
+- **Quick Start Guide**: `frontend/QUICKSTART.md`
+- **Usage Guide**: `frontend/README_USAGE.md`
+- **Implementation Notes**: `IMPLEMENTATION_NOTES.md`
+
+## 🎯 How It Works
+
+1. **Upload Documents**: Drag and drop multiple document versions (JSON or DOCX format)
+2. **AI Analysis**: Advanced algorithms extract and compare factual data across all versions
+3. **Review Results**: View inconsistencies with severity levels, context, and filtering options
+
+## 📊 Detected Inconsistency Types
+
+- **Dates**: "30 June 2029" vs "30. Juni 2028" ❌
+- **Currency**: "EUR 135 million" vs "136 Mio. EUR" ❌
+- **Numbers**: Numerical discrepancies in corresponding paragraphs ❌
+- **Percentages**: "32%" vs "30%" ❌
+
+## 🔬 Test with Sample Data
+
+We've included sample EU regulation documents in the `data/` folder:
+- `test_sample_en_parsed.json` - English version
+- `test_sample_de_parsed.json` - German version
+- `test_sample_lv_parsed.json` - Latvian version
+
+Upload any 2+ files to see real inconsistencies detected!
+
+## 🛠️ Technology Stack
+
+- **Frontend**: Next.js 16, React 19, TypeScript
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **AI Platform**: IBM watsonx.ai (integration ready)
+
+## 📈 Results
+
+Our solution addresses the key challenges:
+
+✅ **Reduces False Positives**: Smart pattern matching and normalization  
+✅ **Accurate Detection**: Catches real inconsistencies across languages  
+✅ **Time Savings**: Automated analysis instead of manual review  
+✅ **Scalable**: Can handle multiple documents simultaneously  
+✅ **User-Friendly**: Intuitive interface for proofreaders  
+
+---
+
 # **Point of Contact**
 
 **Steve Lievens**
 📧 [steve.lievens@be.ibm.com](mailto:steve.lievens@be.ibm.com)
 📞 +32 478 423 42 12
+
+**Team 09**
+IBM x GDG KUL - AI Accelerate 2025
 
 ---
 
