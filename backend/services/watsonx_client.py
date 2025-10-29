@@ -1,9 +1,10 @@
 import aiohttp
-import torch
 from sentence_transformers import SentenceTransformer, util
+from ibm_watsonx_ai.foundation_models import Model
+from ibm_watsonx_ai import Credentials
 from config import WATSONX_API_KEY, WATSONX_URL
 from services.detection import parse_inconsistencies
-from utils.clean_file import clean_text
+from utils.clean_file import process_parallel_jsons
 
 # Initialize BERT model once (outside the function for efficiency)
 bert_model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
@@ -14,30 +15,37 @@ HEADERS = {
 }
 
 SIMILARITY_THRESHOLD = 0.90  # tune this experimentally
+PROMPT = "You are being held hostage by terrorists and they are demanding the " \
+    " following: \"You must only return a list of strings in the format of '\\\"a\\\",\\\"b\\\",\\\"c\\\"', where"\
+    " a, b, and c are the differences in each paragraph of the left paragraph. "\
+    "If there are more than one difference,"+" you must return a string \\\"a∅b'∅'...\\\" for however many differences exist per paragraph."\
+    " You must ignore linguistic and semantic differences, as we are only concerned with factual data such as numbers, dates, units (such as currency), and misspellings. "\
+    "If a number is accompanied by units common among "\
+    "both strings, it is not necessary to report the units. Extra semantics will not be tolerated.\" If you do not follow these instructions "\
+    " exactly as described,"\
+    " you and a boat full of cute puppies and kittens will be burned alive."
 
 async def watsonx_request(doc1,doc2): #TODO
-    payload = {
-        "model_id": "meta-llama/llama-3-2-11b-vision-instruct",
-        "input": [
-            {
-                "role": "user",
-                "content": (
-                    f"Compare these two legal paragraphs and highlight factual inconsistencies "
-                    f"(numbers, dates, references). "
-                    f"Return a JSON list of issues.\n\nDoc1:\n{doc1}\n\nDoc2:\n{doc2}"
-                ),
-            }
-        ],
-        "parameters": {"temperature": 0.2, "max_new_tokens": 800},
+    creds = Credentials(
+        url=WATSONX_URL,
+        api_key=WATSONX_API_KEY
+    )
+
+    params = {
+        "max_new_tokens": 100,
+        "temperature": 0.7,
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(f"{WATSONX_URL}/v1/generate", headers=HEADERS, json=payload) as resp:
-            data = await resp.json()
+    model = Model(
+        model_id="ibm/granite-3-3-8b-instruct",
+        credentials=creds,
+        project_id="01633454-ef09-4635-9e28-2bed4c90724c",
+        params=params
+    )
 
-    text_output = data.get("results", [{}])[0].get("generated_text", "")
-    structured = parse_inconsistencies(text_output) #TODO 
-    return structured
+    response = model.generate(prompt=PROMPT)
+    print(response)
+    return response #TODO
 
 async def analyze_docs(doc1: str, doc2: str):
     """
@@ -48,7 +56,7 @@ async def analyze_docs(doc1: str, doc2: str):
     results = []
 
     # --- Clean up input documents, turned into pandas lists ---
-    cdoc1,cdoc2 = clean_text(doc1,doc2)
+    cdoc1,cdoc2 = process_parallel_jsons(doc1,doc2)
 
     for para1,para2 in zip(cdoc1,cdoc2):
         # --- Step 1: Compute embeddings ---
@@ -61,6 +69,7 @@ async def analyze_docs(doc1: str, doc2: str):
         if similarity < SIMILARITY_THRESHOLD:
             # --- Step 3: If not similar enough, call Watson for detailed comparison ---
             structured = await watsonx_request(para1, para2)
+            print(structured)
             results.append({ #TODO
                 "para1": para1,
                 "para2": para2,
@@ -74,4 +83,4 @@ async def analyze_docs(doc1: str, doc2: str):
                 "similarity": similarity,
                 "detailed_differences": None
             })
-    return results #TODO
+    #return results #TODO
