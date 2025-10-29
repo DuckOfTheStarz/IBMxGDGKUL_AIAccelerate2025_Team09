@@ -58,33 +58,11 @@ HEADERS = {
 
 SIMILARITY_THRESHOLD = 0.94  # tune this experimentally
 PROMPT = """
-    You are a strict formatting validator. Your sole purpose is to return differences in the exact format specified.
-
-    MANDATORY OUTPUT FORMAT: 
-    Single paragraph: Return ONE string with format "a_1∅a_2∅∅b_1∅b_2"
-    Multiple paragraphs: Return MULTIPLE strings: "para1_diff1∅para1_diff2∅∅para1_diff3", "para2_diff1∅para2_diff2"
-
-    DIFFERENCE CRITERIA (ONLY):
-    Numerical values (12 vs 15)
-    Dates (2024 vs 2025)
-    Units with conflicting values ($100 vs €100)
-    Clear misspellings (recieve vs receive)
-
-    FORMATTING RULES:
-    Individual differences within a group: separated by ∅
-    Multiple difference groups within same paragraph: separated by ∅∅
-    Each paragraph gets its own quoted string
-    Multiple paragraphs = multiple separate strings
-
-    EXAMPLES:
-    Single paragraph, one difference group: "15∅January 2025"
-    Single paragraph, multiple difference groups: "15∅January 2025∅∅recieve∅$100"
-    Multiple paragraphs: "15∅January 2025∅∅recieve", "200∅€150", "misspelled_word∅2024"
-
-    STRICTLY EXCLUDE: Semantic meaning, phrasing differences, linguistic variations.
-
-    DEVIATION FROM THIS FORMAT WILL INVALIDATE THE RESPONSE.
-    """
+Compare the following two paragraphs — one in English and one in German — and list only the factual differences between them. 
+Focus on numbers, dates, names, and measurable data. 
+Ignore translation or stylistic differences. 
+If there are no factual differences, return "No differences found.
+"""
 
 async def model2(doc1,doc2): #TODO
     creds = Credentials(
@@ -104,10 +82,10 @@ async def model2(doc1,doc2): #TODO
         params=params
     )
 
-    completed_prompt = PROMPT + f"\nLeft paragraph: {doc1}\nRight paragraph: {doc2}" 
+    completed_prompt = PROMPT + f"\nEnglish paragraph: {doc1}\nGerman paragraph: {doc2}\n Return only a concise list of factual differences." 
     response = model.generate(prompt=completed_prompt)
-    print(response)
-    return response #TODO
+    print(response['results'][0]['generated_text'])
+    return response['results'][0]['generated_text'] #TODO
 
 # async def analyze_docs(doc1: str, doc2: str):
 #     """
@@ -231,5 +209,4 @@ def func():
     import asyncio
     result = asyncio.run(analyze_docs(doc1,doc2))
     print(result)
-
-func()
+    return result
