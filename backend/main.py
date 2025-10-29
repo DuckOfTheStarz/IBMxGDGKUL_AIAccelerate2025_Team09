@@ -1,13 +1,11 @@
 from fastapi import FastAPI
-from routes import upload, analyze, results
+from routes import upload, compare
 
-app = FastAPI(title="Watsonx Inconsistency Detector", version="0.1")
+app = FastAPI(title="Document Comparison API")
 
-# Routers
 app.include_router(upload.router, prefix="/upload", tags=["Upload"])
-app.include_router(analyze.router, prefix="/analyze", tags=["Analyze"])
-app.include_router(results.router, prefix="/results", tags=["Results"])
+app.include_router(compare.router, prefix="/compare", tags=["Compare"])
 
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "Watsonx Inconsistency API running"}
+    return {"status": "ok", "message": "API running"}
