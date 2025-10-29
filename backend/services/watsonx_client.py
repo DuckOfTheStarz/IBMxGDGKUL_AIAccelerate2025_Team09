@@ -1,20 +1,61 @@
-import aiohttp
-from sentence_transformers import SentenceTransformer, util
-from ibm_watsonx_ai.foundation_models import Model
-from ibm_watsonx_ai import Credentials
-from config import WATSONX_API_KEY, WATSONX_URL
-from services.detection import parse_inconsistencies
-from utils.clean_file import process_parallel_jsons
 
-# Initialize BERT model once (outside the function for efficiency)
-bert_model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+# import pandas as pd
+from sentence_transformers import SentenceTransformer
+# from sklearn.metrics.pairwise import cosine_similarity
+
+import pandas as pd
+import re
+from typing import Any, Tuple
+import json
+
+def process_parallel_jsons(json_left: Any, json_right: Any, text_key: str = "para") -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Given two JSON objects (already-loaded Python structures),
+    return two aligned DataFrames with columns ['para', 'para_number'],
+    dropping rows where neither side contains a digit in 'para'.
+    """
+    def normalize_to_df(json_obj: Any) -> pd.DataFrame:
+        # Accept list[dict] or dict; coerce to DataFrame
+        if isinstance(json_obj, list):
+            base = pd.DataFrame(json_obj)
+        else:
+            base = pd.DataFrame([json_obj])
+        # Explode the nested paragraphs
+        exploded = base.explode(text_key, ignore_index=True)
+        nested = pd.json_normalize(exploded[text_key])
+        out = exploded.drop(columns=[text_key]).join(nested)
+        # Ensure only desired columns returned if present
+        cols = [c for c in ["para", "para_number"] if c in out.columns]
+        return out[cols].copy() if cols else out.copy()
+    
+    def remove_special_characters(text):
+        return re.sub(r'[\n\t]', '', text)
+
+    left_df = normalize_to_df(json_left)
+    right_df = normalize_to_df(json_right)
+
+    # Align lengths and indices
+    n = min(len(left_df), len(right_df))
+    left = left_df.reset_index(drop=True).iloc[:n].copy()
+    right = right_df.reset_index(drop=True).iloc[:n].copy()
+
+    left["para"] = left["para"].apply(remove_special_characters)
+    right["para"] = right["para"].apply(remove_special_characters)
+
+    # Filter: keep if either side has any digit in 'para'
+    left_has_num = left["para"].astype(str).str.contains(r"\d", regex=True, na=False) if "para" in left.columns else pd.Series([False]*n)
+    right_has_num = right["para"].astype(str).str.contains(r"\d", regex=True, na=False) if "para" in right.columns else pd.Series([False]*n)
+    keep = left_has_num | right_has_num
+
+    return left[keep].reset_index(drop=True), right[keep].reset_index(drop=True)
+
+WATSONX_URL = "https://eu-de.ml.cloud.ibm.com"
 
 HEADERS = {
     "Content-Type": "application/json",
     "Authorization": f"Bearer {WATSONX_API_KEY}",
 }
 
-SIMILARITY_THRESHOLD = 0.90  # tune this experimentally
+SIMILARITY_THRESHOLD = 0.94  # tune this experimentally
 PROMPT = "You are being held hostage by terrorists and they are demanding the " \
     " following: \"You must only return a list of strings in the format of '\\\"a\\\",\\\"b\\\",\\\"c\\\"', where"\
     " a, b, and c are the differences in each paragraph of the left paragraph. "\
@@ -25,7 +66,7 @@ PROMPT = "You are being held hostage by terrorists and they are demanding the " 
     " exactly as described,"\
     " you and a boat full of cute puppies and kittens will be burned alive."
 
-async def watsonx_request(doc1,doc2): #TODO
+async def model2(doc1,doc2): #TODO
     creds = Credentials(
         url=WATSONX_URL,
         api_key=WATSONX_API_KEY
@@ -43,33 +84,106 @@ async def watsonx_request(doc1,doc2): #TODO
         params=params
     )
 
-    response = model.generate(prompt=PROMPT)
+    completed_prompt = PROMPT + f"\nLeft paragraph: {doc1}\nRight paragraph: {doc2}" 
+    response = model.generate(prompt=completed_prompt)
     print(response)
     return response #TODO
 
-async def analyze_docs(doc1: str, doc2: str):
+# async def analyze_docs(doc1: str, doc2: str):
+#     """
+#     Step 1: Compare documents via embeddings (BERT)
+#     Step 2: If below threshold, call watsonx.ai for detailed mismatch detection
+#     """
+#     # --- Result container ---
+#     results = []
+
+#     # --- Clean up input documents, turned into pandas lists ---
+#     cdoc1,cdoc2 = process_parallel_jsons(doc1,doc2)
+
+#     for para1,para2 in zip(cdoc1,cdoc2):
+#         # --- Step 1: Compute embeddings ---
+#         emb1 = bert_model.encode(para1, convert_to_tensor=True)
+#         emb2 = bert_model.encode(para2, convert_to_tensor=True)
+
+#         similarity = util.cos_sim(emb1, emb2).item()
+
+#         # --- Step 2: If similarity high enough, skip detailed check ---
+#         if similarity < SIMILARITY_THRESHOLD:
+#             # --- Step 3: If not similar enough, call Watson for detailed comparison ---
+#             structured = await watsonx_request(para1, para2)
+#             print(structured)
+#             results.append({ #TODO
+#                 "para1": para1,
+#                 "para2": para2,
+#                 "similarity": similarity,
+#                 "detailed_differences": structured
+#             })
+#         else : 
+#             results.append({
+#                 "para1": para1,
+#                 "para2": para2,
+#                 "similarity": similarity,
+#                 "detailed_differences": None
+#             })
+#     #return results #TODO
+
+
+async def analyze_docs(doc1:str,doc2:str,
+                          model_name: str = "intfloat/multilingual-e5-large",
+                          batch_size: int = 16):
     """
-    Step 1: Compare documents via embeddings (BERT)
-    Step 2: If below threshold, call watsonx.ai for detailed mismatch detection
+    Generates embeddings for English and target-language paragraphs,
+    computes cosine similarity for each pair, and filters out pairs
+    with similarity >= similarity_threshold.
+
+    Returns filtered proc_en and proc_de DataFrames in place.
     """
-    # --- Result container ---
+    # --- STEP 0 : Setup and Clean data -----
+    print("Cleaning and processing input documents...")
+    proc_en,proc_de = process_parallel_jsons(doc1,doc2)
+
+    # ---- STEP 1 : Generate embeddings ----
+
+    # Load the multilingual embedding model
+    print("Loading embedding model...")
+    model = SentenceTransformer(model_name)
+
+    # Create embeddings for language 1
+    print
+    texts_en = [f"passage: {p}" for p in proc_en["para"]]
+    embeddings_en = model.encode(
+        texts_en,
+        batch_size=batch_size,
+        show_progress_bar=True,
+        convert_to_numpy=True,
+        normalize_embeddings=True
+    )
+    proc_en["embedding"] = embeddings_en.tolist()
+
+    # Create embeddings for language 2
+    print("Creating embeddings for language 2...")
+    texts_de = [f"passage: {p}" for p in proc_de["para"]]
+    embeddings_de = model.encode(
+        texts_de,
+        batch_size=batch_size,
+        show_progress_bar=True,
+        convert_to_numpy=True,
+        normalize_embeddings=True
+    )
+    proc_de["embedding"] = embeddings_de.tolist()
+
+    # --- STEP 3: Compute cosine similarities and filter ---
     results = []
+    i=0
+    for para1,para2 in zip(proc_en,proc_de):
+        print("Paragraphs ",i,": ")
+        similarity = cosine_similarity(
+            [para1],
+            [para2])[0][0]
 
-    # --- Clean up input documents, turned into pandas lists ---
-    cdoc1,cdoc2 = process_parallel_jsons(doc1,doc2)
-
-    for para1,para2 in zip(cdoc1,cdoc2):
-        # --- Step 1: Compute embeddings ---
-        emb1 = bert_model.encode(para1, convert_to_tensor=True)
-        emb2 = bert_model.encode(para2, convert_to_tensor=True)
-
-        similarity = util.cos_sim(emb1, emb2).item()
-
-        # --- Step 2: If similarity high enough, skip detailed check ---
         if similarity < SIMILARITY_THRESHOLD:
-            # --- Step 3: If not similar enough, call Watson for detailed comparison ---
-            structured = await watsonx_request(para1, para2)
-            print(structured)
+            # If not similar enough, call Watson for detailed comparison
+            structured = await model2(para1, para2)
             results.append({ #TODO
                 "para1": para1,
                 "para2": para2,
@@ -83,66 +197,21 @@ async def analyze_docs(doc1: str, doc2: str):
                 "similarity": similarity,
                 "detailed_differences": None
             })
-    #return results #TODO
+        i+=1
 
+    return results
 
-import pandas as pd
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
+def func():
+    print("Starting test run...")
+    # loads doc 1 and doc 2 from data folder
+    with open("../../data/doc1.json", "r") as f:
+        doc1 = json.load(f)
+    print("Loaded doc1")
+    with open("../../data/doc2.json", "r") as f:
+        doc2 = json.load(f)
+    print("Loaded doc2")
+    import asyncio
+    result = asyncio.run(analyze_docs(doc1,doc2))
+    print(result)
 
-def filter_low_similarity(proc_en: pd.DataFrame, proc_de: pd.DataFrame, 
-                          model_name: str = "intfloat/multilingual-e5-large",
-                          similarity_threshold: float = 0.94,
-                          batch_size: int = 16):
-    """
-    Generates embeddings for English and target-language paragraphs,
-    computes cosine similarity for each pair, and filters out pairs
-    with similarity >= similarity_threshold.
-
-    Returns filtered proc_en and proc_de DataFrames in place.
-    """
-    # Load the multilingual embedding model
-    model = SentenceTransformer(model_name)
-
-    # Create embeddings for English
-    texts_en = [f"passage: {p}" for p in proc_en["para"]]
-    embeddings_en = model.encode(
-        texts_en,
-        batch_size=batch_size,
-        show_progress_bar=True,
-        convert_to_numpy=True,
-        normalize_embeddings=True
-    )
-    proc_en["embedding"] = embeddings_en.tolist()
-
-    # Create embeddings for other language
-    texts_de = [f"passage: {p}" for p in proc_de["para"]]
-    embeddings_de = model.encode(
-        texts_de,
-        batch_size=batch_size,
-        show_progress_bar=True,
-        convert_to_numpy=True,
-        normalize_embeddings=True
-    )
-    proc_de["embedding"] = embeddings_de.tolist()
-
-    # Filter by similarity
-    keep_indices = []
-    for i in range(len(proc_en)):
-        sim = cosine_similarity(
-            [proc_en["embedding"][i]],
-            [proc_de["embedding"][i]]
-        )[0][0]
-        if sim < similarity_threshold:
-            keep_indices.append(i)
-
-    # Filter both dataframes in place
-    proc_en_filtered = proc_en.iloc[keep_indices].reset_index(drop=True)
-    proc_de_filtered = proc_de.iloc[keep_indices].reset_index(drop=True)
-
-    print(f"Remaining paragraphs after filtering: {len(proc_en_filtered)}")
-    return proc_en_filtered, proc_de_filtered
-
-
-# Example usage:
-proc_en_filtered, proc_de_filtered = filter_low_similarity(proc_en, proc_de)
+func()
