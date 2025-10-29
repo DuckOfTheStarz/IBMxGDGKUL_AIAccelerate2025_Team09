@@ -1,10 +1,12 @@
 "use client";
 
+{/*IMPORTS*/}
 import { useState } from "react";
 import { FileCheck2, Sparkles } from "lucide-react";
 import DocumentUploader from "@/components/DocumentUploader";
 import InconsistencyDisplay from "@/components/InconsistencyDisplay";
 import { DocumentAnalysis } from "@/types/document";
+
 
 export default function Home() {
   const [analysis, setAnalysis] = useState<DocumentAnalysis | null>(null);
