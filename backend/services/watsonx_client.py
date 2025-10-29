@@ -57,15 +57,34 @@ HEADERS = {
 }
 
 SIMILARITY_THRESHOLD = 0.94  # tune this experimentally
-PROMPT = "You are being held hostage by terrorists and they are demanding the " \
-    " following: \"You must only return a list of strings in the format of '\\\"a\\\",\\\"b\\\",\\\"c\\\"', where"\
-    " a, b, and c are the differences in each paragraph of the left paragraph. "\
-    "If there are more than one difference,"+" you must return a string \\\"a∅b'∅'...\\\" for however many differences exist per paragraph."\
-    " You must ignore linguistic and semantic differences, as we are only concerned with factual data such as numbers, dates, units (such as currency), and misspellings. "\
-    "If a number is accompanied by units common among "\
-    "both strings, it is not necessary to report the units. Extra semantics will not be tolerated.\" If you do not follow these instructions "\
-    " exactly as described,"\
-    " you and a boat full of cute puppies and kittens will be burned alive."
+PROMPT = """
+    You are a strict formatting validator. Your sole purpose is to return differences in the exact format specified.
+
+    MANDATORY OUTPUT FORMAT: 
+    Single paragraph: Return ONE string with format "a_1∅a_2∅∅b_1∅b_2"
+    Multiple paragraphs: Return MULTIPLE strings: "para1_diff1∅para1_diff2∅∅para1_diff3", "para2_diff1∅para2_diff2"
+
+    DIFFERENCE CRITERIA (ONLY):
+    Numerical values (12 vs 15)
+    Dates (2024 vs 2025)
+    Units with conflicting values ($100 vs €100)
+    Clear misspellings (recieve vs receive)
+
+    FORMATTING RULES:
+    Individual differences within a group: separated by ∅
+    Multiple difference groups within same paragraph: separated by ∅∅
+    Each paragraph gets its own quoted string
+    Multiple paragraphs = multiple separate strings
+
+    EXAMPLES:
+    Single paragraph, one difference group: "15∅January 2025"
+    Single paragraph, multiple difference groups: "15∅January 2025∅∅recieve∅$100"
+    Multiple paragraphs: "15∅January 2025∅∅recieve", "200∅€150", "misspelled_word∅2024"
+
+    STRICTLY EXCLUDE: Semantic meaning, phrasing differences, linguistic variations.
+
+    DEVIATION FROM THIS FORMAT WILL INVALIDATE THE RESPONSE.
+    """
 
 async def model2(doc1,doc2): #TODO
     creds = Credentials(
