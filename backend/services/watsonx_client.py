@@ -1,9 +1,10 @@
 
-# import pandas as pd
-from sentence_transformers import SentenceTransformer
-# from sklearn.metrics.pairwise import cosine_similarity
-
 import pandas as pd
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+from ibm_watsonx_ai.foundation_models import Model
+from ibm_watsonx_ai import Credentials
+
 import re
 from typing import Any, Tuple
 import json
@@ -48,6 +49,7 @@ def process_parallel_jsons(json_left: Any, json_right: Any, text_key: str = "par
 
     return left[keep].reset_index(drop=True), right[keep].reset_index(drop=True)
 
+WATSONX_API_KEY = "d-UGWYtUERXWDmZvKloHQlJRIZL35NsAH5bExtflc6lr"
 WATSONX_URL = "https://eu-de.ml.cloud.ibm.com"
 
 HEADERS = {
@@ -175,30 +177,37 @@ async def analyze_docs(doc1:str,doc2:str,
     # --- STEP 3: Compute cosine similarities and filter ---
     results = []
     i=0
-    for para1,para2 in zip(proc_en,proc_de):
-        print("Paragraphs ",i,": ")
+    for i, (para1, para2) in enumerate(zip(proc_en["para"], proc_de["para"])):
+        print(f"Paragraphs {i}:")
         similarity = cosine_similarity(
-            [para1],
-            [para2])[0][0]
+            [proc_en["embedding"][i]],
+            [proc_de["embedding"][i]]
+        )[0][0]
 
         if similarity < SIMILARITY_THRESHOLD:
-            # If not similar enough, call Watson for detailed comparison
+            # 🚀 Use the actual text paragraphs here, not embeddings
             structured = await model2(para1, para2)
-            results.append({ #TODO
+
+            # try to decode as JSON if possible
+            try:
+                parsed = json.loads(structured)
+            except json.JSONDecodeError:
+                parsed = {"raw_text": structured}
+
+            results.append({
                 "para1": para1,
                 "para2": para2,
                 "similarity": similarity,
-                "detailed_differences": structured
+                "detailed_differences": parsed
             })
-        else : 
+        else:
             results.append({
                 "para1": para1,
                 "para2": para2,
                 "similarity": similarity,
                 "detailed_differences": None
             })
-        i+=1
-
+            
     return results
 
 def func():
