@@ -84,3 +84,65 @@ async def analyze_docs(doc1: str, doc2: str):
                 "detailed_differences": None
             })
     #return results #TODO
+
+
+import pandas as pd
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+
+def filter_low_similarity(proc_en: pd.DataFrame, proc_de: pd.DataFrame, 
+                          model_name: str = "intfloat/multilingual-e5-large",
+                          similarity_threshold: float = 0.94,
+                          batch_size: int = 16):
+    """
+    Generates embeddings for English and target-language paragraphs,
+    computes cosine similarity for each pair, and filters out pairs
+    with similarity >= similarity_threshold.
+
+    Returns filtered proc_en and proc_de DataFrames in place.
+    """
+    # Load the multilingual embedding model
+    model = SentenceTransformer(model_name)
+
+    # Create embeddings for English
+    texts_en = [f"passage: {p}" for p in proc_en["para"]]
+    embeddings_en = model.encode(
+        texts_en,
+        batch_size=batch_size,
+        show_progress_bar=True,
+        convert_to_numpy=True,
+        normalize_embeddings=True
+    )
+    proc_en["embedding"] = embeddings_en.tolist()
+
+    # Create embeddings for other language
+    texts_de = [f"passage: {p}" for p in proc_de["para"]]
+    embeddings_de = model.encode(
+        texts_de,
+        batch_size=batch_size,
+        show_progress_bar=True,
+        convert_to_numpy=True,
+        normalize_embeddings=True
+    )
+    proc_de["embedding"] = embeddings_de.tolist()
+
+    # Filter by similarity
+    keep_indices = []
+    for i in range(len(proc_en)):
+        sim = cosine_similarity(
+            [proc_en["embedding"][i]],
+            [proc_de["embedding"][i]]
+        )[0][0]
+        if sim < similarity_threshold:
+            keep_indices.append(i)
+
+    # Filter both dataframes in place
+    proc_en_filtered = proc_en.iloc[keep_indices].reset_index(drop=True)
+    proc_de_filtered = proc_de.iloc[keep_indices].reset_index(drop=True)
+
+    print(f"Remaining paragraphs after filtering: {len(proc_en_filtered)}")
+    return proc_en_filtered, proc_de_filtered
+
+
+# Example usage:
+proc_en_filtered, proc_de_filtered = filter_low_similarity(proc_en, proc_de)
